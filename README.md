@@ -185,6 +185,11 @@ That is why DST, date changes, and India's half-hour timezone do not break the r
 
 For far-future flights, the app queries FlightAware's schedules endpoint with a wider date window, localizes candidate departures to the origin airport, and only accepts the result whose **origin-local departure date** matches the date you entered.
 
+Passenger-facing IATA flight numbers (for example `LH413`) are translated to
+the ICAO operator code required by the schedules endpoint (`DLH413`). Enter the
+flight number shown on the ticket; either form is accepted for supported major
+airlines.
+
 ---
 
 # Local testing (optional)
