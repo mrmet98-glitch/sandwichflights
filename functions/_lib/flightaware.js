@@ -3,6 +3,14 @@ import { addDaysISO, calendarDayDifference, durationMinutes, formatLocal, localD
 
 const BASE = 'https://aeroapi.flightaware.com/aeroapi';
 
+// AeroAPI's schedules endpoint filters on ICAO operator codes, while people
+// normally enter the IATA flight number printed on their ticket.
+const IATA_TO_ICAO = {
+  AA: 'AAL', AC: 'ACA', AI: 'AIC', AS: 'ASA', BA: 'BAW', B6: 'JBU',
+  DL: 'DAL', EK: 'UAE', EY: 'ETD', F9: 'FFT', LH: 'DLH', LX: 'SWR',
+  QR: 'QTR', SQ: 'SIA', TK: 'THY', UA: 'UAL', WN: 'SWA', VS: 'VIR'
+};
+
 function apiKey(env) {
   const key = env?.FLIGHTAWARE_API_KEY;
   if (!key) throw new Error('FLIGHTAWARE_API_KEY is not configured in Cloudflare Pages Variables and Secrets.');
@@ -32,9 +40,17 @@ async function faFetch(env, path, params = {}) {
 
 export function parseFlightNumber(input) {
   const normalized = String(input || '').toUpperCase().replace(/[\s-]/g, '');
-  const m = normalized.match(/^([A-Z0-9]{2,3})(\d{1,4}[A-Z]?)$/);
+  // An ICAO designator is three letters; passenger-facing IATA designators
+  // are two alphanumeric characters. Do not greedily consume the first digit
+  // of an IATA flight number as part of its airline (LH413 => LH + 413).
+  const m = normalized.match(/^([A-Z]{3}|[A-Z0-9]{2})(\d{1,4}[A-Z]?)$/);
   if (!m) throw new Error('Enter a flight number like LH413, AI119, UA48, etc.');
-  return { normalized, airline: m[1], flightNumber: m[2] };
+  return {
+    normalized,
+    airline: m[1],
+    scheduleAirline: IATA_TO_ICAO[m[1]] || m[1],
+    flightNumber: m[2]
+  };
 }
 
 function airportCodeFrom(value) {
@@ -77,6 +93,23 @@ function identMatches(record, normalized) {
     .filter(Boolean)
     .map(x => String(x).toUpperCase().replace(/[\s-]/g, ''));
   return values.includes(normalized);
+}
+
+function flightNumberMatches(record, flightNumber) {
+  const wanted = String(flightNumber).replace(/[A-Z]$/, '').replace(/^0+/, '') || '0';
+  const explicit = record.flight_number == null
+    ? ''
+    : String(record.flight_number).replace(/[A-Z]$/, '').replace(/^0+/, '');
+  if (explicit && explicit === wanted) return true;
+
+  // Schedule records are commonly identified with an ICAO ident (DLH413)
+  // even when the passenger entered its IATA equivalent (LH413).
+  const idents = [record.ident_iata, record.ident_icao, record.ident,
+    record.actual_ident_iata, record.actual_ident_icao, record.actual_ident];
+  return idents.filter(Boolean).some(value => {
+    const match = String(value).toUpperCase().replace(/[\s-]/g, '').match(/(\d{1,4})[A-Z]?$/);
+    return match && (match[1].replace(/^0+/, '') || '0') === wanted;
+  });
 }
 
 function scoreMatch(record, normalized) {
@@ -145,15 +178,17 @@ async function lookupSchedule(env, parsed, requestedDate) {
   const start = addDaysISO(requestedDate, -1);
   const end = addDaysISO(requestedDate, 2);
   const data = await faFetch(env, `/schedules/${start}/${end}`, {
-    airline: parsed.airline,
+    airline: parsed.scheduleAirline,
     flight_number: parsed.flightNumber.replace(/[A-Z]$/, ''),
     include_codeshares: 'true',
     max_pages: 2
   });
   const records = data.scheduled || data.flights || [];
-  const likely = records.filter(r => identMatches(r, parsed.normalized) || String(r.flight_number || '') === parsed.flightNumber);
-  const pool = likely.length ? likely : records;
-  const normalized = await Promise.all(pool.map(r => normalizeRecord(env, r, requestedDate, parsed.normalized, 'schedule')));
+  const likely = records.filter(r => identMatches(r, parsed.normalized) || flightNumberMatches(r, parsed.flightNumber));
+  // Never enrich every record returned by a broad schedule response. Besides
+  // producing false matches, that can turn one lookup into dozens of airport
+  // requests and exhaust AeroAPI's per-minute allowance.
+  const normalized = await Promise.all(likely.map(r => normalizeRecord(env, r, requestedDate, parsed.normalized, 'schedule')));
   return normalized.filter(r => r.departure_local_date === requestedDate).sort((a,b) => b.score - a.score);
 }
 
