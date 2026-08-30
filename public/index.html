@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sandwich Flight Planner</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">INDIA TRIP · OCT 2026–MAR 2027</div>
+      <h1>Sandwich Flight Planner</h1>
+      <p>Save cash or award fares, pull scheduled flight data, localize every airport time, and continuously optimize the ticket structure.</p>
+    </div>
+    <button id="refreshBtn" class="button secondary">Refresh</button>
+  </header>
+
+  <main class="shell">
+    <section id="kpis" class="kpis"></section>
+    <nav class="tabs">
+      <button class="tab active" data-tab="searches">Search Guide</button>
+      <button class="tab" data-tab="optimizer">Booking Optimizer</button>
+      <button class="tab" data-tab="permutations">Original 48</button>
+    </nav>
+    <div id="flash" class="flash hidden"></div>
+    <section id="content"></section>
+  </main>
+
+  <dialog id="optionDialog">
+    <form id="optionForm" method="dialog">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow" id="dialogSearchId"></div>
+          <h2 id="dialogTitle">Fare option</h2>
+          <p id="dialogSubtitle"></p>
+        </div>
+        <button type="button" class="icon-button" id="closeDialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="pricing-type-row">
+        <label>How is this fare priced?
+          <select id="pricingType"><option value="cash">Cash fare</option><option value="points">Points / miles</option></select>
+        </label>
+        <label>Booking source<input id="bookingSource" placeholder="Google Flights, Lufthansa, Amex, Aeroplan…" /></label>
+      </div>
+
+      <div id="cashFields" class="price-grid cash-grid">
+        <label>Total cash price<input id="totalPrice" inputmode="decimal" type="number" min="0" step="0.01" placeholder="e.g. 1285.40" /></label>
+        <label>Currency<select id="currency"><option>USD</option><option>INR</option><option>EUR</option><option>GBP</option><option>CAD</option><option>AED</option></select></label>
+      </div>
+
+      <div id="pointsFields" class="award-grid hidden">
+        <label>Points / miles<input id="pointsAmount" inputmode="numeric" type="number" min="0" step="1" placeholder="85000" /></label>
+        <label>Program<input id="pointsProgram" placeholder="Aeroplan, United, Amex MR…" /></label>
+        <label>Taxes & fees<input id="taxesFees" inputmode="decimal" type="number" min="0" step="0.01" placeholder="92.40" /></label>
+        <label>Tax currency<select id="taxesCurrency"><option>USD</option><option>INR</option><option>EUR</option><option>GBP</option><option>CAD</option><option>AED</option></select></label>
+        <label>Value per point (¢)<input id="pointValueCents" inputmode="decimal" type="number" min="0" step="0.01" value="1.5" /></label>
+      </div>
+
+      <div class="comparison-row">
+        <label>Optimizer value in USD<input id="comparisonValue" inputmode="decimal" type="number" min="0" step="0.01" placeholder="Used only to compare booking strategies" /></label>
+        <p id="comparisonHint" class="muted"></p>
+      </div>
+
+      <div id="journeyEditors"></div>
+
+      <label class="notes-label">Notes<textarea id="notes" rows="3" placeholder="Fare rules, mixed cabin, positioning notes, etc."></textarea></label>
+      <div class="dialog-actions">
+        <button type="button" id="deleteOption" class="button danger hidden">Delete option</button>
+        <span class="grow"></span>
+        <button type="button" id="cancelOption" class="button secondary">Cancel</button>
+        <button type="submit" id="saveOption" class="button primary">Save option</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="searchDialog" class="small-dialog">
+    <form id="searchForm" method="dialog">
+      <div class="dialog-head">
+        <div><div class="eyebrow">CUSTOM FARE SEARCH</div><h2>Add date combo / one-way</h2><p>Create a new fare search, then add as many flight options as you want.</p></div>
+        <button type="button" class="icon-button" id="closeSearchDialog" aria-label="Close">×</button>
+      </div>
+      <div class="custom-search-grid">
+        <label>Ticket type<select id="searchTicketType"><option>One Way</option><option>Round Trip</option><option>Open-Jaw RT</option><option>India-Origin RT</option><option>India-Origin Open-Jaw</option><option>Custom Pair</option></select></label>
+        <label>Optional label<input id="searchLabel" placeholder="e.g. Feb 5 NYC→BOM + Feb 25 NYC→BOM" /></label>
+      </div>
+      <section class="journey-editor custom-leg"><div class="journey-editor-head"><div><div class="eyebrow">LEG 1</div><h3>First trip covered by this ticket</h3></div></div><div class="custom-leg-grid"><label>Date<input id="searchLeg1Date" type="date" required /></label><label>Origin<input id="searchLeg1Origin" maxlength="4" placeholder="NYC" required /></label><label>Destination<input id="searchLeg1Destination" maxlength="4" placeholder="BOM" required /></label></div></section>
+      <section id="searchLeg2" class="journey-editor custom-leg hidden"><div class="journey-editor-head"><div><div class="eyebrow">LEG 2</div><h3>Second trip covered by this ticket</h3></div></div><div class="custom-leg-grid"><label>Date<input id="searchLeg2Date" type="date" /></label><label>Origin<input id="searchLeg2Origin" maxlength="4" placeholder="BOM" /></label><label>Destination<input id="searchLeg2Destination" maxlength="4" placeholder="NYC" /></label></div></section>
+      <p class="muted">Tip: JFK, EWR, LGA and HPN are treated as NYC by the optimizer, so a custom search can still match your original NYC travel requirement.</p>
+      <div class="dialog-actions"><span class="grow"></span><button type="button" id="cancelSearch" class="button secondary">Cancel</button><button type="submit" id="saveSearch" class="button primary">Add search</button></div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
